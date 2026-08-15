@@ -1,12 +1,10 @@
-name: Auto-Update EPG
+name: Auto-Update EPG (USA + UK) with Compression
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
-  workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    # Runs every 4 hours
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   update-epg:
@@ -22,28 +20,34 @@ jobs:
           node-version: '22'
           
       - name: Install dependencies
-        run: npm install
-        
-      - name: Generate EPG guide
         run: |
-          npm run grab --- --sites=tvguide.com --output=guide.xml || echo "Grab command failed"
+          npm install
+          npm install -g tsx
           
-      - name: Check if guide was generated
+      - name: Generate USA + UK EPG guide
         run: |
-          if [ -f "guide.xml" ]; then
-            echo "✅ guide.xml generated!"
-            ls -la guide.xml
-            exit 0
-          else
-            echo "❌ guide.xml not found! Generating fallback."
-            echo "<?xml version='1.0' encoding='UTF-8'?><tv></tv>" > guide.xml
-            exit 0
-          fi
+          echo "📺 Generating EPG guide for USA and UK..."
+          npm run grab --- --sites=tvguide.com,freeview.co.uk --output=guide.xml --days=2
+          echo "✅ EPG guide generated!"
+          ls -la guide.xml
           
-      - name: Commit and push updated guide
+      - name: Compress guide.xml to .gz
+        run: |
+          echo "📦 Compressing guide.xml..."
+          gzip -c guide.xml > guide.xml.gz
+          echo "✅ Compression complete!"
+          echo "Original size: $(du -h guide.xml | cut -f1)"
+          echo "Compressed size: $(du -h guide.xml.gz | cut -f1)"
+          
+      - name: Remove uncompressed guide (to save space)
+        run: |
+          rm guide.xml
+          echo "🗑️ Uncompressed guide removed, keeping only .gz"
+          
+      - name: Commit and push compressed guide
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add guide.xml
-          git commit -m "🤖 Auto-update EPG - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-          git push || echo "Push skipped"
+          git add guide.xml.gz
+          git commit -m "🤖 Auto-update EPG (USA+UK) - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push || echo "Push skipped (no changes)"
