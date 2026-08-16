@@ -36,11 +36,17 @@ jobs:
           npm run grab --- --sites=tvguide.com --output=guide_us.xml --days=2
           echo "✅ US guide generated!"
           
-          # GB - United Kingdom (freeview.co.uk)
+          # GB - Freeview (United Kingdom)
           echo ""
           echo "🇬🇧 Generating GB guide (freeview.co.uk)..."
           npm run grab --- --sites=freeview.co.uk --output=guide_gb.xml --days=2
           echo "✅ GB guide generated!"
+          
+          # UK - Sky (United Kingdom)
+          echo ""
+          echo "🇬🇧 Generating UK guide (sky.com)..."
+          npm run grab --- --sites=sky.com --output=guide_uk.xml --days=2
+          echo "✅ UK guide generated!"
           
           # GH - Ghana (dstv.com - African channels)
           echo ""
@@ -95,6 +101,9 @@ jobs:
           
           gzip -c guide_gb.xml > guide_gb.xml.gz
           echo "✅ guide_gb.xml.gz"
+          
+          gzip -c guide_uk.xml > guide_uk.xml.gz
+          echo "✅ guide_uk.xml.gz"
           
           gzip -c guide_gh.xml > guide_gh.xml.gz
           echo "✅ guide_gh.xml.gz"
