@@ -1,4 +1,4 @@
-name: Auto-Update EPG (USA + UK) with Compression
+name: Auto-Update All EPG Guides
 
 on:
   schedule:
@@ -24,30 +24,80 @@ jobs:
           npm install
           npm install -g tsx
           
-      - name: Generate USA + UK EPG guide
+      - name: Generate All Country EPG Guides
         run: |
-          echo "📺 Generating EPG guide for USA and UK..."
-          npm run grab --- --sites=tvguide.com,freeview.co.uk --output=guide.xml --days=2
-          echo "✅ EPG guide generated!"
-          ls -la guide.xml
+          echo "📺 Generating country-specific EPG guides..."
+          echo "=============================================="
           
-      - name: Compress guide.xml to .gz
+          # USA
+          echo ""
+          echo "🇺🇸 Generating USA guide (tvguide.com)..."
+          npm run grab --- --sites=tvguide.com --output=guide_usa.xml --days=2
+          echo "✅ USA guide generated!"
+          
+          # UK
+          echo ""
+          echo "🇬🇧 Generating UK guide (freeview.co.uk)..."
+          npm run grab --- --sites=freeview.co.uk --output=guide_uk.xml --days=2
+          echo "✅ UK guide generated!"
+          
+          # Ghana (DStv - African channels)
+          echo ""
+          echo "🇬🇭 Generating Ghana guide (dstv.com)..."
+          npm run grab --- --sites=dstv.com --output=guide_ghana.xml --days=2
+          echo "✅ Ghana guide generated!"
+          
+          # Germany
+          echo ""
+          echo "🇩🇪 Generating Germany guide (sky.com)..."
+          npm run grab --- --sites=sky.com --output=guide_germany.xml --days=2
+          echo "✅ Germany guide generated!"
+          
+          # Italy
+          echo ""
+          echo "🇮🇹 Generating Italy guide (sky.com)..."
+          npm run grab --- --sites=sky.com --output=guide_italy.xml --days=2
+          echo "✅ Italy guide generated!"
+          
+          echo ""
+          echo "=============================================="
+          echo "✅ All guides generated successfully!"
+          ls -la guide_*.xml
+          
+      - name: Compress All Guides
         run: |
-          echo "📦 Compressing guide.xml..."
-          gzip -c guide.xml > guide.xml.gz
-          echo "✅ Compression complete!"
-          echo "Original size: $(du -h guide.xml | cut -f1)"
-          echo "Compressed size: $(du -h guide.xml.gz | cut -f1)"
+          echo "📦 Compressing all guides..."
+          echo "=============================================="
           
-      - name: Remove uncompressed guide (to save space)
+          gzip -c guide_usa.xml > guide_usa.xml.gz
+          echo "✅ guide_usa.xml.gz"
+          
+          gzip -c guide_uk.xml > guide_uk.xml.gz
+          echo "✅ guide_uk.xml.gz"
+          
+          gzip -c guide_ghana.xml > guide_ghana.xml.gz
+          echo "✅ guide_ghana.xml.gz"
+          
+          gzip -c guide_germany.xml > guide_germany.xml.gz
+          echo "✅ guide_germany.xml.gz"
+          
+          gzip -c guide_italy.xml > guide_italy.xml.gz
+          echo "✅ guide_italy.xml.gz"
+          
+          echo "=============================================="
+          echo "📊 Compression complete!"
+          ls -la guide_*.xml.gz
+          
+      - name: Clean up uncompressed files
         run: |
-          rm guide.xml
-          echo "🗑️ Uncompressed guide removed, keeping only .gz"
+          echo "🗑️ Removing uncompressed files to save space..."
+          rm guide_*.xml
+          echo "✅ Cleanup complete!"
           
-      - name: Commit and push compressed guide
+      - name: Commit and push compressed guides
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add guide.xml.gz
-          git commit -m "🤖 Auto-update EPG (USA+UK) - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git add guide_*.xml.gz
+          git commit -m "🤖 Auto-update all country guides - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
           git push || echo "Push skipped (no changes)"
