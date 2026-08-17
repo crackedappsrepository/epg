@@ -24,125 +24,88 @@ jobs:
           npm install
           npm install -g tsx
           
-      - name: Generate All Country EPG Guides
+      - name: Generate EPG Guides (Only existing files)
         run: |
           echo "=============================================="
-          echo "📺 Generating country-specific EPG guides..."
+          echo "📺 Generating EPG guides for existing files..."
           echo "=============================================="
+          
+          # Check which guide files exist in the repository
+          # Only generate guides for files that already exist
           
           # US (tvguide.com)
-          echo ""
-          echo "🇺🇸 Generating US guide (tvguide.com)..."
-          npm run grab --- --sites=tvguide.com --output=guide_us.xml --days=2
-          echo "✅ US guide generated!"
+          if [ -f "guide_us.xml.gz" ] || [ -f "guide_us.xml" ]; then
+            echo ""
+            echo "🇺🇸 Updating US guide (tvguide.com)..."
+            npm run grab --- --sites=tvguide.com --output=guide_us.xml --days=2
+            gzip -c guide_us.xml > guide_us.xml.gz
+            rm guide_us.xml
+            echo "✅ US guide updated!"
+          else
+            echo "⏭️ Skipping US guide (not in repository)"
+          fi
           
           # GB - Freeview (United Kingdom)
-          echo ""
-          echo "🇬🇧 Generating GB guide (freeview.co.uk)..."
-          npm run grab --- --sites=freeview.co.uk --output=guide_gb.xml --days=2
-          echo "✅ GB guide generated!"
+          if [ -f "guide_gb.xml.gz" ] || [ -f "guide_gb.xml" ]; then
+            echo ""
+            echo "🇬🇧 Updating GB guide (freeview.co.uk)..."
+            npm run grab --- --sites=freeview.co.uk --output=guide_gb.xml --days=2
+            gzip -c guide_gb.xml > guide_gb.xml.gz
+            rm guide_gb.xml
+            echo "✅ GB guide updated!"
+          else
+            echo "⏭️ Skipping GB guide (not in repository)"
+          fi
           
           # UK - Sky (United Kingdom)
-          echo ""
-          echo "🇬🇧 Generating UK guide (sky.com)..."
-          npm run grab --- --sites=sky.com --output=guide_uk.xml --days=2
-          echo "✅ UK guide generated!"
+          if [ -f "guide_uk.xml.gz" ] || [ -f "guide_uk.xml" ]; then
+            echo ""
+            echo "🇬🇧 Updating UK guide (sky.com)..."
+            npm run grab --- --sites=sky.com --output=guide_uk.xml --days=2
+            gzip -c guide_uk.xml > guide_uk.xml.gz
+            rm guide_uk.xml
+            echo "✅ UK guide updated!"
+          else
+            echo "⏭️ Skipping UK guide (not in repository)"
+          fi
           
-          # GH - Ghana (dstv.com - African channels)
-          echo ""
-          echo "🇬🇭 Generating GH guide (dstv.com)..."
-          npm run grab --- --sites=dstv.com --output=guide_gh.xml --days=2
-          echo "✅ GH guide generated!"
+          # CA - Canada (only if exists)
+          if [ -f "guide_ca.xml.gz" ] || [ -f "guide_ca.xml" ]; then
+            echo ""
+            echo "🇨🇦 Updating CA guide (tvguide.com)..."
+            npm run grab --- --sites=tvguide.com --output=guide_ca.xml --days=2
+            gzip -c guide_ca.xml > guide_ca.xml.gz
+            rm guide_ca.xml
+            echo "✅ CA guide updated!"
+          else
+            echo "⏭️ Skipping CA guide (not in repository)"
+          fi
           
-          # DE - Germany (sky.com)
-          echo ""
-          echo "🇩🇪 Generating DE guide (sky.com)..."
-          npm run grab --- --sites=sky.com --output=guide_de.xml --days=2
-          echo "✅ DE guide generated!"
-          
-          # IT - Italy (sky.com)
-          echo ""
-          echo "🇮🇹 Generating IT guide (sky.com)..."
-          npm run grab --- --sites=sky.com --output=guide_it.xml --days=2
-          echo "✅ IT guide generated!"
-          
-          # FR - France (canalplus.com)
-          echo ""
-          echo "🇫🇷 Generating FR guide (canalplus.com)..."
-          npm run grab --- --sites=canalplus.com --output=guide_fr.xml --days=2
-          echo "✅ FR guide generated!"
-          
-          # CA - Canada (tvguide.com)
-          echo ""
-          echo "🇨🇦 Generating CA guide (tvguide.com)..."
-          npm run grab --- --sites=tvguide.com --output=guide_ca.xml --days=2
-          echo "✅ CA guide generated!"
-          
-          # AU - Australia (foxtel.com.au)
-          echo ""
-          echo "🇦🇺 Generating AU guide (foxtel.com.au)..."
-          npm run grab --- --sites=foxtel.com.au --output=guide_au.xml --days=2
-          echo "✅ AU guide generated!"
+          # GH - Ghana (only if exists)
+          if [ -f "guide_gh.xml.gz" ] || [ -f "guide_gh.xml" ]; then
+            echo ""
+            echo "🇬🇭 Updating GH guide (dstv.com)..."
+            npm run grab --- --sites=dstv.com --output=guide_gh.xml --days=2
+            gzip -c guide_gh.xml > guide_gh.xml.gz
+            rm guide_gh.xml
+            echo "✅ GH guide updated!"
+          else
+            echo "⏭️ Skipping GH guide (not in repository)"
+          fi
           
           echo ""
           echo "=============================================="
-          echo "✅ All guides generated successfully!"
-          echo "=============================================="
-          ls -la guide_*.xml
-          
-      - name: Compress All Guides
-        run: |
-          echo ""
-          echo "📦 Compressing all guides..."
-          echo "=============================================="
-          
-          gzip -c guide_us.xml > guide_us.xml.gz
-          echo "✅ guide_us.xml.gz"
-          
-          gzip -c guide_gb.xml > guide_gb.xml.gz
-          echo "✅ guide_gb.xml.gz"
-          
-          gzip -c guide_uk.xml > guide_uk.xml.gz
-          echo "✅ guide_uk.xml.gz"
-          
-          gzip -c guide_gh.xml > guide_gh.xml.gz
-          echo "✅ guide_gh.xml.gz"
-          
-          gzip -c guide_de.xml > guide_de.xml.gz
-          echo "✅ guide_de.xml.gz"
-          
-          gzip -c guide_it.xml > guide_it.xml.gz
-          echo "✅ guide_it.xml.gz"
-          
-          gzip -c guide_fr.xml > guide_fr.xml.gz
-          echo "✅ guide_fr.xml.gz"
-          
-          gzip -c guide_ca.xml > guide_ca.xml.gz
-          echo "✅ guide_ca.xml.gz"
-          
-          gzip -c guide_au.xml > guide_au.xml.gz
-          echo "✅ guide_au.xml.gz"
-          
-          echo ""
-          echo "=============================================="
-          echo "📊 Compression complete!"
+          echo "✅ All existing guides updated!"
           echo "=============================================="
           ls -la guide_*.xml.gz
           
-      - name: Clean up uncompressed files
-        run: |
-          echo ""
-          echo "🗑️ Removing uncompressed files to save space..."
-          rm guide_*.xml
-          echo "✅ Cleanup complete!"
-          
-      - name: Commit and push compressed guides
+      - name: Commit and push updated guides
         run: |
           echo ""
           echo "📤 Committing and pushing to GitHub..."
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add guide_*.xml.gz
-          git commit -m "🤖 Auto-update all country guides - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git commit -m "🤖 Auto-update existing guides - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
           git push || echo "Push skipped (no changes)"
           echo "✅ Done!"
