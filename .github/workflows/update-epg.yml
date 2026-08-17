@@ -13,6 +13,10 @@ concurrency:
   group: epg-auto-update
   cancel-in-progress: false
 
+env:
+  # ✅ Suppress Node 20 deprecation warnings from action internals
+  ACTIONS_RUNNER_DEPRECATION_WARNINGS: false
+
 jobs:
   update-epg:
     runs-on: ubuntu-latest
