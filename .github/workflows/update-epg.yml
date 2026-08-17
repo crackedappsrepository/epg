@@ -6,106 +6,100 @@ on:
     - cron: '0 */4 * * *'
   workflow_dispatch: # Allows manual trigger
 
+permissions:
+  contents: write
+
+concurrency:
+  group: epg-auto-update
+  cancel-in-progress: false
+
 jobs:
   update-epg:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 45
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          
+          node-version: '20'
+
       - name: Install dependencies
         run: |
-          npm install
-          npm install -g tsx
-          
-      - name: Generate EPG Guides (Only existing files)
+          npm install --no-audit --no-fund
+          npm install -g tsx --no-audit --no-fund
+
+      - name: Generate EPG Guides (fault-tolerant, validated)
         run: |
           echo "=============================================="
           echo "📺 Generating EPG guides for existing files..."
           echo "=============================================="
-          
-          # Check which guide files exist in the repository
-          # Only generate guides for files that already exist
-          
-          # US (tvguide.com)
-          if [ -f "guide_us.xml.gz" ] || [ -f "guide_us.xml" ]; then
-            echo ""
-            echo "🇺🇸 Updating US guide (tvguide.com)..."
-            npm run grab --- --sites=tvguide.com --output=guide_us.xml --days=2
-            gzip -c guide_us.xml > guide_us.xml.gz
-            rm guide_us.xml
-            echo "✅ US guide updated!"
-          else
-            echo "⏭️ Skipping US guide (not in repository)"
-          fi
-          
-          # GB - Freeview (United Kingdom)
-          if [ -f "guide_gb.xml.gz" ] || [ -f "guide_gb.xml" ]; then
-            echo ""
-            echo "🇬🇧 Updating GB guide (freeview.co.uk)..."
-            npm run grab --- --sites=freeview.co.uk --output=guide_gb.xml --days=2
-            gzip -c guide_gb.xml > guide_gb.xml.gz
-            rm guide_gb.xml
-            echo "✅ GB guide updated!"
-          else
-            echo "⏭️ Skipping GB guide (not in repository)"
-          fi
-          
-          # UK - Sky (United Kingdom)
-          if [ -f "guide_uk.xml.gz" ] || [ -f "guide_uk.xml" ]; then
-            echo ""
-            echo "🇬🇧 Updating UK guide (sky.com)..."
-            npm run grab --- --sites=sky.com --output=guide_uk.xml --days=2
-            gzip -c guide_uk.xml > guide_uk.xml.gz
-            rm guide_uk.xml
-            echo "✅ UK guide updated!"
-          else
-            echo "⏭️ Skipping UK guide (not in repository)"
-          fi
-          
-          # CA - Canada (only if exists)
-          if [ -f "guide_ca.xml.gz" ] || [ -f "guide_ca.xml" ]; then
-            echo ""
-            echo "🇨🇦 Updating CA guide (tvguide.com)..."
-            npm run grab --- --sites=tvguide.com --output=guide_ca.xml --days=2
-            gzip -c guide_ca.xml > guide_ca.xml.gz
-            rm guide_ca.xml
-            echo "✅ CA guide updated!"
-          else
-            echo "⏭️ Skipping CA guide (not in repository)"
-          fi
-          
-          # GH - Ghana (only if exists)
-          if [ -f "guide_gh.xml.gz" ] || [ -f "guide_gh.xml" ]; then
-            echo ""
-            echo "🇬🇭 Updating GH guide (dstv.com)..."
-            npm run grab --- --sites=dstv.com --output=guide_gh.xml --days=2
-            gzip -c guide_gh.xml > guide_gh.xml.gz
-            rm guide_gh.xml
-            echo "✅ GH guide updated!"
-          else
-            echo "⏭️ Skipping GH guide (not in repository)"
-          fi
-          
-          echo ""
+
+          # ✅ FIX 1: correct '--' delimiter + npx fallback if script missing
+          run_grab() {
+            npm run grab -- "$@" && return 0
+            echo "⚠️ npm run grab failed, falling back to npx epg..."
+            npx --yes epg grab "$@"
+          }
+
+          # ✅ FIX 3: per-guide retries, never kills the job
+          # ✅ FIX 4: validates XML before replacing the .gz
+          update_guide() {
+            FILE="$1"
+            SITES="$2"
+            if [ ! -f "${FILE}.xml.gz" ] && [ ! -f "${FILE}.xml" ]; then
+              echo "⏭️ Skipping ${FILE} (not in repository)"
+              return 0
+            fi
+            for ATTEMPT in 1 2; do
+              echo "🔄 ${FILE} attempt ${ATTEMPT} (sites: ${SITES})"
+              if run_grab --sites="${SITES}" --output="${FILE}.xml" --days=2; then
+                if [ -s "${FILE}.xml" ] && grep -q "</tv>" "${FILE}.xml"; then
+                  gzip -c "${FILE}.xml" > "${FILE}.xml.gz"
+                  rm -f "${FILE}.xml"
+                  echo "✅ ${FILE} updated"
+                  return 0
+                else
+                  echo "⚠️ ${FILE}.xml missing or invalid, retrying..."
+                  rm -f "${FILE}.xml"
+                fi
+              fi
+              sleep 5
+            done
+            echo "❌ ${FILE} update failed - keeping previous guide"
+            rm -f "${FILE}.xml"
+            return 0
+          }
+
+          update_guide guide_us tvguide.com
+          update_guide guide_gb freeview.co.uk
+          update_guide guide_uk sky.com
+          update_guide guide_ca tvguide.com
+          update_guide guide_gh dstv.com
+
           echo "=============================================="
-          echo "✅ All existing guides updated!"
+          echo "✅ Update pass complete"
           echo "=============================================="
-          ls -la guide_*.xml.gz
-          
+          ls -la guide_*.xml.gz || true
+
       - name: Commit and push updated guides
         run: |
           echo ""
           echo "📤 Committing and pushing to GitHub..."
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add guide_*.xml.gz
-          git commit -m "🤖 Auto-update existing guides - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-          git push || echo "Push skipped (no changes)"
+          git add guide_*.xml.gz 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🤖 Auto-update existing guides - $(date +'%Y-%m-%d %H:%M:%S')"
+            # ✅ FIX 2: explicit branch push with token fallback
+            git push origin HEAD:main || git push
+          fi
           echo "✅ Done!"
