@@ -14,7 +14,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # ✅ Suppress Node 20 deprecation warnings from action internals
   ACTIONS_RUNNER_DEPRECATION_WARNINGS: false
 
 jobs:
@@ -45,25 +44,26 @@ jobs:
           echo "📺 Generating EPG guides for existing files..."
           echo "=============================================="
 
-          # ✅ FIX 1: correct '--' delimiter + npx fallback if script missing
           run_grab() {
             npm run grab -- "$@" && return 0
             echo "⚠️ npm run grab failed, falling back to npx epg..."
             npx --yes epg grab "$@"
           }
 
-          # ✅ FIX 3: per-guide retries, never kills the job
-          # ✅ FIX 4: validates XML before replacing the .gz
           update_guide() {
             FILE="$1"
             SITES="$2"
-            if [ ! -f "${FILE}.xml.gz" ] && [ ! -f "${FILE}.xml" ]; then
-              echo "⏭️ Skipping ${FILE} (not in repository)"
-              return 0
+            CHANNELS="$3"
+            
+            # Dynamically build arguments array to safely handle special characters
+            ARGS=("--sites=${SITES}" "--output=${FILE}.xml" "--days=3")
+            if [ -n "$CHANNELS" ]; then
+              ARGS+=("--channels=${CHANNELS}")
             fi
+
             for ATTEMPT in 1 2; do
               echo "🔄 ${FILE} attempt ${ATTEMPT} (sites: ${SITES})"
-              if run_grab --sites="${SITES}" --output="${FILE}.xml" --days=2; then
+              if run_grab "${ARGS[@]}"; then
                 if [ -s "${FILE}.xml" ] && grep -q "</tv>" "${FILE}.xml"; then
                   gzip -c "${FILE}.xml" > "${FILE}.xml.gz"
                   rm -f "${FILE}.xml"
@@ -81,11 +81,10 @@ jobs:
             return 0
           }
 
-          update_guide guide_us tvguide.com
-          update_guide guide_gb freeview.co.uk
-          update_guide guide_uk sky.com
-          update_guide guide_ca tvguide.com
-          update_guide guide_gh dstv.com
+          TARGET_SITES="tvguide.com,freeview.co.uk,sky.com,ontvtonight.com,tvhebdo.com,tvpassport.com"
+          TARGET_CHANNELS="AlJazeera.qa@English,AE.us@East,BBCOne.uk@LondonHD,BBCThree.uk@SD,BBCTwo.uk@England,BBCNews.uk@Africa,Bravo.us@East,BET.us@East,cartoon-network,challenge,CNN.us@SD,ComedyCentral.uk@HD,crave1--east-hd/2820,crave2--east/86,crave3--east-hd/7137,crave4-hd/10781,FoxNewsChannel.us@SD,game-show-network--west/13459,game-tv/5976,HBO.us@East,HBO2.us@East,hustler-tv-usa-on-demand/10171,ITV1.uk@Central,ITV2.uk@SD,ITV3.uk@SD,Nickelodeon.uk@SD,NickJr.ie@SD,RTEOne.ie@HD,RTE2.ie@HD,sky-Atlantic,sky-cinema-action,sky-cinema-greats,sky-cinema-hits,sky-cinema-premiere,SkyMix.uk@HD,SkySportsFootball.uk@HD,SkySportsMainEvent.uk@HD,SkySportsPremierLeague.uk@HD,Syfy.us@East,TNTSports1.uk@HD,TNTSports2.uk@HD,TNTSports3.uk@HD,TNTSports4.uk@HD,TSN1.ca@SD,TSN2.ca@SD,TSN3.ca@SD,TSN4.ca@SD,TSN5.ca@SD"
+          
+          update_guide guide_ca "${TARGET_SITES}" "${TARGET_CHANNELS}"
 
           echo "=============================================="
           echo "✅ Update pass complete"
@@ -102,8 +101,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "🤖 Auto-update existing guides - $(date +'%Y-%m-%d %H:%M:%S')"
-            # ✅ FIX 2: explicit branch push with token fallback
+            git commit -m "🤖 Auto-update CA guide - $(date +'%Y-%m-%d %H:%M:%S')"
             git push origin HEAD:main || git push
           fi
           echo "✅ Done!"
